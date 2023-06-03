@@ -92,11 +92,25 @@ def to_batch(path):
 
 
 def load_checkpoint(args, mica):
-    checkpoint = torch.load(args.m)
-    if 'arcface' in checkpoint:
-        mica.arcface.load_state_dict(checkpoint['arcface'])
-    if 'flameModel' in checkpoint:
-        mica.flameModel.load_state_dict(checkpoint['flameModel'])
+
+    while True:
+        try:
+
+            # main command
+            checkpoint = torch.load(args.m)
+            if 'arcface' in checkpoint:
+                mica.arcface.load_state_dict(checkpoint['arcface'])
+            if 'flameModel' in checkpoint:
+                mica.flameModel.load_state_dict(checkpoint['flameModel'])
+
+            break
+        except RuntimeError as e:
+            if str(e).startswith('CUDA'):
+                print("Warning: out of memory, sleep for 10s")
+                time.sleep(10)
+            else:
+                print(e)
+                break
 
 
 def main(cfg, args):
@@ -117,12 +131,26 @@ def main(cfg, args):
         paths = process(args, app)
         for path in tqdm(paths):
             name = Path(path).stem
-            images, arcface = to_batch(path)
-            codedict = mica.encode(images, arcface)
-            opdict = mica.decode(codedict)
-            meshes = opdict['pred_canonical_shape_vertices']
-            code = opdict['pred_shape_code']
-            lmk = mica.flame.compute_landmarks(meshes)
+
+            while True:
+                try:
+                    
+                    # main process
+                    images, arcface = to_batch(path)
+                    codedict = mica.encode(images, arcface)
+                    opdict = mica.decode(codedict)
+                    meshes = opdict['pred_canonical_shape_vertices']
+                    code = opdict['pred_shape_code']
+                    lmk = mica.flame.compute_landmarks(meshes)
+
+                    break
+                except RuntimeError as e:
+                    if str(e).startswith('CUDA'):
+                        print("Warning: out of memory, sleep for 10s")
+                        time.sleep(10)
+                    else:
+                        print(e)
+                        break
 
             mesh = meshes[0]
             landmark_51 = lmk[0, 17:]

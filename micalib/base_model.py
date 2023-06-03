@@ -25,6 +25,7 @@ from configs.config import cfg
 from models.flame import FLAME
 from utils.masking import Masking
 
+import time
 
 class BaseModel(nn.Module):
     def __init__(self, config=None, device=None, tag=''):
@@ -41,12 +42,25 @@ class BaseModel(nn.Module):
         self.testing = self.cfg.model.testing
 
     def initialize(self):
-        self.create_flame(self.cfg.model)
-        self.create_model(self.cfg.model)
-        self.load_model()
-        self.setup_renderer(self.cfg.model)
+        while True:
+            try:
 
-        self.create_weights()
+                # main command
+                self.create_flame(self.cfg.model)
+                self.create_model(self.cfg.model)
+                self.load_model()
+                self.setup_renderer(self.cfg.model)
+
+                self.create_weights()
+
+                break
+            except RuntimeError as e:
+                if str(e).startswith('CUDA'):
+                    print("Warning: out of memory, sleep for 10s")
+                    time.sleep(10)
+                else:
+                    print(e)
+                    break               
 
     def create_flame(self, model_cfg):
         self.flame = FLAME(model_cfg).to(self.device)

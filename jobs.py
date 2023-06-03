@@ -29,6 +29,7 @@ from loguru import logger
 from micalib.tester import Tester
 from micalib.trainer import Trainer
 from utils import util
+import time
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '.')))
 
@@ -57,15 +58,29 @@ def test(rank, world_size, cfg, args):
 
     cfg.model.testing = True
     mica = util.find_model_using_name(model_dir='micalib.models', model_name=cfg.model.name)(cfg, rank)
-    tester = Tester(nfc_model=mica, config=cfg, device=rank)
-    tester.render_mesh = True
 
-    if args.test_dataset.upper() == 'STIRLING':
-        tester.test_stirling(args.checkpoint)
-    elif args.test_dataset.upper() == 'NOW':
-        tester.test_now(args.checkpoint)
-    else:
-        logger.error('[TESTER] Test dataset was not specified!')
+    while True:
+        try:
+
+            # main command
+            tester = Tester(nfc_model=mica, config=cfg, device=rank)
+            tester.render_mesh = True
+
+            if args.test_dataset.upper() == 'STIRLING':
+                tester.test_stirling(args.checkpoint)
+            elif args.test_dataset.upper() == 'NOW':
+                tester.test_now(args.checkpoint)
+            else:
+                logger.error('[TESTER] Test dataset was not specified!')
+
+            break
+        except RuntimeError as e:
+            if str(e).startswith('CUDA'):
+                print("Warning: out of memory, sleep for 10s")
+                time.sleep(10)
+            else:
+                print(e)
+                break
 
     dist.destroy_process_group()
 
